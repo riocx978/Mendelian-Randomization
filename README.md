@@ -78,6 +78,7 @@ Install the required R packages:
 
 ```r
 install.packages(c("TwoSampleMR", "MRInstruments", "tidyverse"))
+```
 
 ## Key Findings
 This study provides insights into the causal relationships between selected risk factors and periodontitis:

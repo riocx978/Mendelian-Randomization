@@ -92,5 +92,7 @@ A negative association was detected, differing from earlier studies suggesting a
 A borderline significant positive association was observed, reinforcing smoking as a risk factor.
 Sensitivity analyses and graphical evaluations supported the robustness of these findings.
 
-#Contact
-For any questions, please contact Rhea Charles at riocx1997@gmail.com or open an issue on this repository.
+## Contact  
+For any questions, please contact  
+Rhea Charles at riocx1997@gmail.com or  
+open an issue on this repository.

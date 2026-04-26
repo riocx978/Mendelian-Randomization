@@ -1,98 +1,88 @@
 # Mendelian Randomization Analysis of Periodontal Disease
 
-## Overview
+> Causal inference study identifying genetic risk factors for chronic and acute periodontitis — published as a Master's thesis at the University of South Florida (2024).
 
-This repository contains the code and analysis for a Mendelian Randomization (MR) study investigating the causal effects of multiple exposures on periodontal disease.
-
-The study evaluates the following exposures:
-
-- Smoking status  
-- Maternal smoking after birth  
-- Plasminogen levels  
-- Creatinine levels  
-- Absence of psychosocial stress  
-
-Genetic variants (SNPs) were used as instrumental variables (IVs) to assess causal relationships with:
-
-- Chronic periodontitis  
-- Acute periodontitis  
+📄 [Read the full thesis](https://digitalcommons.usf.edu/etd/10605)
 
 ---
 
-## Data Sources
+## Overview
 
-### Exposure Data
-- Smoking status  
-- Maternal smoking after birth  
-- Plasminogen levels  
-- Creatinine levels  
-- Absence of psychosocial stress  
+This study uses **two-sample Mendelian Randomization (MR)** to evaluate whether five modifiable exposures causally influence periodontal disease risk. By using SNPs as genetic instrumental variables, MR sidesteps the confounding and reverse causation problems that plague observational studies.
 
-### Outcome Data
-- Chronic periodontal disease  
-- Acute periodontal disease  
+**Exposures tested:**
+- Smoking status
+- Maternal smoking after birth
+- Plasminogen levels
+- Creatinine levels
+- Absence of psychosocial stress
 
-### Instrumental Variables
-- SNPs selected based on:
-  - Genome-wide significance threshold (P-value)  
-  - Linkage disequilibrium threshold (r²)  
+**Outcomes:**
+- Chronic periodontitis
+- Acute periodontitis
+
+---
+
+## Key Findings
+
+| Exposure | Outcome | Direction | Significance |
+|----------|---------|-----------|--------------|
+| Creatinine levels | Acute periodontitis | Positive ↑ | Significant |
+| Maternal smoking | Periodontitis risk | Positive ↑ | Significant |
+| Plasminogen levels | Periodontitis risk | Negative ↓ | Significant |
+| Smoking status | Chronic periodontitis | Positive ↑ | Borderline |
+
+**Highlights:**
+- Creatinine → acute periodontitis link supports the hypothesis that renal dysfunction amplifies systemic inflammation
+- Maternal smoking effect aligns with prenatal nicotine exposure literature
+- Plasminogen's negative association diverges from prior pro-inflammatory models — flagged as a priority for follow-up research
 
 ---
 
 ## Methods
 
-This analysis was conducted in **R** using two-sample Mendelian Randomization approaches.
+All analyses were conducted in **R** using a two-sample MR framework.
 
-MR methods implemented:
+**MR methods:**
+- Inverse Variance Weighted (IVW) — primary estimate
+- MR-Egger — tests and corrects for directional pleiotropy
+- Weighted Median — robust when up to 50% of IVs are invalid
 
-- Inverse Variance Weighted (IVW)  
-- MR-Egger  
-- Weighted Median  
+**Instrumental variable selection:**
+- Genome-wide significance threshold (P < 5×10⁻⁸)
+- LD pruning (r² threshold applied)
+- Allele harmonization across exposure and outcome GWAS
 
-Sensitivity analyses included:
-
-- Leave-one-out analysis  
-- Heterogeneity testing  
-- Graphical diagnostics  
-
----
-
-## Workflow
-
-1. Selection of instrumental variables based on genome-wide significant SNPs  
-2. Harmonization of exposure and outcome datasets to align effect alleles  
-3. MR analysis using multiple complementary methods  
-4. Sensitivity analyses to assess robustness  
+**Sensitivity analyses:**
+- Leave-one-out analysis
+- Cochran's Q heterogeneity test
+- Funnel plots and scatter plots for visual diagnostics
 
 ---
 
-## Code Structure
+## Repository Structure
 
-- `TwoSampleMR.R` — Main MR analysis pipeline  
+```
+Mendelian-Randomization/
+└── TwoSampleMR.R       # Full MR pipeline: IV selection, harmonization, analysis, sensitivity checks
+```
 
 ---
 
 ## Requirements
 
-Install the required R packages:
-
 ```r
 install.packages(c("TwoSampleMR", "MRInstruments", "tidyverse"))
 ```
 
-## Key Findings
-This study provides insights into the causal relationships between selected risk factors and periodontitis:
-### Creatinine Levels and Acute Periodontitis  
-A significant positive association was observed, supporting evidence that renal dysfunction may exacerbate inflammatory conditions.
-### Maternal Smoking and Periodontitis Risk  
-A significant positive association was identified, aligning with prior research on prenatal nicotine exposure and adverse health outcomes.
-### Plasminogen Levels and Periodontitis Risk  
-A negative association was detected, differing from earlier studies suggesting a pro-inflammatory role of plasminogen. This highlights the need for further investigation.
-### Smoking and Chronic Periodontitis  
-A borderline significant positive association was observed, reinforcing smoking as a risk factor.
-Sensitivity analyses and graphical evaluations supported the robustness of these findings.
+---
 
-## Contact  
-For any questions, please contact  
-Rhea Charles at riocx1997@gmail.com or  
-open an issue on this repository.
+## Citation
+
+Charles, R. (2024). *Unravelling the Impact of Blood Metabolites and Lifestyle Factors on Periodontal Disease Using Mendelian Randomization.* Master's Thesis, University of South Florida. https://digitalcommons.usf.edu/etd/10605
+
+---
+
+## Contact
+
+**Rhea Charles** · [riocx1997@gmail.com](mailto:riocx1997@gmail.com) · [LinkedIn](https://www.linkedin.com/in/rhea-charles/) · [GitHub](https://github.com/riocx978)

@@ -1,247 +1,356 @@
-# Setting options to suppress scientific notation
-options(scipen = 999)
+# =============================================================================
+# Mendelian Randomization Analysis: Periodontal Disease
+# Author: Rhea Charles
+# Institution: University of South Florida
+# Published thesis: https://digitalcommons.usf.edu/etd/10605
+#
+# Description:
+#   Two-sample MR analysis evaluating causal effects of five exposures on
+#   chronic and acute periodontitis. Includes IV selection, harmonization,
+#   MR estimation (IVW, MR-Egger, Weighted Median), sensitivity analyses,
+#   and visualization (forest plots, heatmap, funnel plots).
+# =============================================================================
 
-# Setting the working directory to where the data files are located
-setwd("C:/path")
 
-# Loading necessary libraries for data manipulation and analysis
-library(readr)      # For reading data files
-library(vroom)      # For fast data reading
-library(tidyr)      # For data tidying
-library(tibble)     # For modern data frames
-library(dplyr)      # For data manipulation
-library(TwoSampleMR) # For Mendelian Randomization (MR) analysis
-library(ggplot2)    # For data visualization
-library(gt)         # For creating tables
-library(meta)       # For meta-analysis
-library(ComplexHeatmap) # For creating complex heatmaps
-library(reshape2)   # For reshaping data
-library(grid)       # For grid graphics
+# -----------------------------------------------------------------------------
+# 0. Setup
+# -----------------------------------------------------------------------------
 
-# Define file paths for the data
-data_path <- 'C:/path'
-data_path1 <- 'C:/path'
+options(scipen = 999)  # Suppress scientific notation
+options(ieugwasr_api = "gwas-api.mrcieu.ac.uk/")
 
-# Load outcome and exposure data
-perio <- vroom(paste0(data_path, "AcutePerioUKBB.txt")) # Acute Perio outcome data
-perio2 <- vroom(paste0(data_path, "AcutePerio.txt")) # Acute Perio outcome data (alternative)
-perio3 <- vroom(paste0(data_path, "ChronicPerio.txt")) # Chronic Perio outcome data
-exposure3 <- vroom(paste0(data_path, "exposure3.txt")) # Exposure data for creatinine levels
-exposure4 <- vroom(paste0(data_path, "exposure4.txt")) # Exposure data for maternal smoking around birth
-exposure5 <- vroom(paste0(data_path, "exposure5.txt")) # Exposure data for plasminogen levels
-exposure6 <- vroom(paste0(data_path, "exposure6.txt")) # Exposure data for smoking
-exposure7 <- vroom(paste0(data_path, "exposure7.txt")) # Exposure data for absence of psychosocial stress
+library(readr)
+library(vroom)
+library(tidyr)
+library(tibble)
+library(dplyr)
+library(TwoSampleMR)
+library(ggplot2)
+library(gt)
+library(meta)
+library(ComplexHeatmap)
+library(reshape2)
+library(grid)
 
-# Prepare outcome data for MR analysis
-perio <- na.omit(perio) # Remove rows with missing values
-perio <- format_data(perio, type = "outcome",
-                     snp_col = "SNP",
-                     beta_col = "beta_EUR",
-                     se_col = "se_EUR",
-                     effect_allele_col = "ref",
-                     other_allele_col = "alt",
-                     eaf_col = "af_cases_EUR",
-                     pval_col = "neglog10_pval_EUR") %>%
-  mutate(outcome = 'Acute Perio')
-vroom_write(perio, 'AcutePerioUKBB_Adj.txt') # Save formatted data
 
-# Prepare exposure data for MR analysis
-exposure <- na.omit(exposure) # Remove rows with missing values
-exposure <- format_data(exposure, type = "exposure",
-                        snp_col = "variant_id",
-                        beta_col = "beta",
-                        se_col = "standard_error",
-                        effect_allele_col = "effect_allele",
-                        other_allele_col = "other_allele",
-                        eaf_col = "effect_allele_frequency",
-                        pval_col = "p_value") %>%
-  mutate(exposure = 'vitDdeficiency')
-vroom_write(exposure, 'vitDdeficiency_ebi_Adj.txt') # Save formatted data
+# -----------------------------------------------------------------------------
+# 1. Load data
+# -----------------------------------------------------------------------------
+# Update these paths to point to your local data directory
 
-# Set API endpoint for GWAS data
-options(ieugwasr_api = 'gwas-api.mrcieu.ac.uk/')
+data_path <- "data/"   # <-- set your data directory here
 
-# Clump exposure data to identify top hits
-tophits <- exposure %>% 
-  filter(pval.exposure <= 5e-05) %>% # Filter for significant SNPs
-  clump_data(.,
-             clump_kb = 10000,
-             clump_r2 = 0.001,
-             clump_p1 = 5e-05,
-             clump_p2 = 1,
-             pop = "EUR")
-vroom_write(tophits, 'exposure_tophits.txt') # Save clumped data
+# Outcome GWAS summary statistics
+perio_acute_ukbb <- vroom(paste0(data_path, "AcutePerioUKBB.txt"))
+perio_acute      <- vroom(paste0(data_path, "AcutePerio.txt"))
+perio_chronic    <- vroom(paste0(data_path, "ChronicPerio.txt"))
 
-# Harmonize outcome and exposure data
-Harmonized <- harmonise_data(tophits, perio) #done multiple times for each exposure and outcome
+# Exposure GWAS summary statistics
+exposure_creatinine   <- vroom(paste0(data_path, "exposure3.txt"))  # Creatinine levels
+exposure_mat_smoking  <- vroom(paste0(data_path, "exposure4.txt"))  # Maternal smoking after birth
+exposure_plasminogen  <- vroom(paste0(data_path, "exposure5.txt"))  # Plasminogen levels
+exposure_smoking      <- vroom(paste0(data_path, "exposure6.txt"))  # Smoking status
+exposure_stress       <- vroom(paste0(data_path, "exposure7.txt"))  # Absence of psychosocial stress
 
-# Perform MR analysis with different methods
-mr_res3 <- mr(exposure3, method_list = c("mr_egger_regression", "mr_ivw", "mr_ivw_radial", "mr_ivw_mre", "mr_weighted_median"))
-mr_res4 <- mr(filtered_df, method_list = c("mr_egger_regression", "mr_ivw", "mr_ivw_radial", "mr_ivw_mre", "mr_weighted_median"))
-mr_res5 <- mr(exposure5, method_list = c("mr_egger_regression", "mr_ivw", "mr_ivw_radial", "mr_ivw_mre", "mr_weighted_median"))
-mr_res6 <- mr(exposure6, method_list = c("mr_egger_regression", "mr_ivw", "mr_ivw_radial", "mr_ivw_mre", "mr_weighted_median"))
-mr_res7 <- mr(exposure7, method_list = c("mr_egger_regression", "mr_ivw", "mr_ivw_radial", "mr_ivw_mre", "mr_weighted_median"))
 
-# Generate odds ratios for all MR results
-odds_ratios_list3 <- generate_odds_ratios(mr_res3)
-odds_ratios_list4 <- generate_odds_ratios(mr_res4)
-odds_ratios_list5 <- generate_odds_ratios(mr_res5)
-odds_ratios_list6 <- generate_odds_ratios(mr_res6)
-odds_ratios_list7 <- generate_odds_ratios(mr_res7)
+# -----------------------------------------------------------------------------
+# 2. Format outcome data
+# -----------------------------------------------------------------------------
 
-# Combine results into one data frame
-combined_mr_res <- rbind(odds_ratios_list3, odds_ratios_list4, odds_ratios_list5, odds_ratios_list6, odds_ratios_list7)
+format_outcome <- function(dat, outcome_label) {
+  dat %>%
+    na.omit() %>%
+    format_data(
+      type               = "outcome",
+      snp_col            = "SNP",
+      beta_col           = "beta_EUR",
+      se_col             = "se_EUR",
+      effect_allele_col  = "ref",
+      other_allele_col   = "alt",
+      eaf_col            = "af_cases_EUR",
+      pval_col           = "neglog10_pval_EUR"
+    ) %>%
+    mutate(outcome = outcome_label)
+}
 
-# Group similar methods and create a column to show exposure name only once
-combined_mr_res$group <- as.character(combined_mr_res$exposure)
-combined_mr_res$group <- ave(combined_mr_res$group, combined_mr_res$group, FUN = function(x) {
-  x[1] <- x[1]  # Keep the first occurrence
-  x[-1] <- ""   # Blank out subsequent occurrences
-  return(x)
-})
+perio_acute_fmt <- format_outcome(perio_acute_ukbb, "Acute Perio")
+perio_chronic_fmt <- format_outcome(perio_chronic, "Chronic Perio")
 
-# Create a meta-analysis object for all instruments
-meta_analysis_all <- metagen(
-  TE = combined_mr_res$b,
-  seTE = combined_mr_res$se,
-  studlab = paste(combined_mr_res$method),  # Use only the method as the label
-  data = combined_mr_res,
-  sm = "OR" # Specify the effect measure as Odds Ratio
+vroom_write(perio_acute_fmt, "output/AcutePerioUKBB_Adj.txt")
+
+
+# -----------------------------------------------------------------------------
+# 3. Format and clump exposure data
+# -----------------------------------------------------------------------------
+# Clumping selects independent, genome-wide significant SNPs as IVs
+# Thresholds: p < 5e-8, r2 < 0.001, window = 10,000 kb
+
+format_and_clump <- function(dat, exposure_label) {
+  dat %>%
+    na.omit() %>%
+    format_data(
+      type                    = "exposure",
+      snp_col                 = "variant_id",
+      beta_col                = "beta",
+      se_col                  = "standard_error",
+      effect_allele_col       = "effect_allele",
+      other_allele_col        = "other_allele",
+      eaf_col                 = "effect_allele_frequency",
+      pval_col                = "p_value"
+    ) %>%
+    mutate(exposure = exposure_label) %>%
+    filter(pval.exposure <= 5e-8) %>%
+    clump_data(
+      clump_kb = 10000,
+      clump_r2 = 0.001,
+      clump_p1 = 5e-8,
+      clump_p2 = 1,
+      pop      = "EUR"
+    )
+}
+
+tophits_creatinine  <- format_and_clump(exposure_creatinine,  "Creatinine")
+tophits_mat_smoking <- format_and_clump(exposure_mat_smoking, "Maternal Smoking")
+tophits_plasminogen <- format_and_clump(exposure_plasminogen, "Plasminogen")
+tophits_smoking     <- format_and_clump(exposure_smoking,     "Smoking")
+tophits_stress      <- format_and_clump(exposure_stress,      "Absence of Psychosocial Stress")
+
+
+# -----------------------------------------------------------------------------
+# 4. Harmonize exposure and outcome data
+# -----------------------------------------------------------------------------
+# Aligns effect alleles between exposure and outcome GWAS
+
+harmonized_creatinine  <- harmonise_data(tophits_creatinine,  perio_acute_fmt)
+harmonized_mat_smoking <- harmonise_data(tophits_mat_smoking, perio_acute_fmt)
+harmonized_plasminogen <- harmonise_data(tophits_plasminogen, perio_acute_fmt)
+harmonized_smoking     <- harmonise_data(tophits_smoking,     perio_chronic_fmt)
+harmonized_stress      <- harmonise_data(tophits_stress,      perio_acute_fmt)
+
+
+# -----------------------------------------------------------------------------
+# 5. MR analysis
+# -----------------------------------------------------------------------------
+# Three complementary methods:
+#   IVW           — primary estimate; assumes all SNPs are valid IVs
+#   MR-Egger      — detects and corrects for directional pleiotropy
+#   Weighted Median — robust when up to 50% of IVs are invalid
+
+mr_methods <- c(
+  "mr_egger_regression",
+  "mr_ivw",
+  "mr_ivw_radial",
+  "mr_ivw_mre",
+  "mr_weighted_median"
 )
 
-# Save the forest plot as a PNG file
-png("forest_plot.png", width = 15, height = 7.5, units = "in", res = 300)
+run_mr <- function(harmonized_dat) {
+  mr(harmonized_dat, method_list = mr_methods) %>%
+    generate_odds_ratios()
+}
 
-# Create and customize the forest plot
-forest(meta_analysis_all, 
-       studlab = TRUE, 
-       comb.fixed = FALSE, 
-       comb.random = TRUE, 
-       print.tau2 = FALSE, 
-       xlab = "Log Odds Ratio for Periodontitis",
-       leftcols = c("group", "method", "nsnp", "b", "se", "pval"),
-       leftlabs = c("Exposure", "Method", "SNPs", "Effect Size", "SE", "P-value"),
-       rightcols = c("or", "or_lci95", "or_uci95"),
-       rightlabs = c("OR", "Lower CI", "Upper CI"),
-       fontsize = 12, 
-       colgap.forest.left = "0.8cm", 
-       colgap.forest.right = "0.8cm",
-       digits = 2, 
-       backtransf = TRUE, 
-       col.square = "red", 
-       col.square.random = "red", 
-       col.study = "black", 
-       col.diamond.random = "blue", 
-       col.diamond.lines = "blue", 
-       col.predict = "purple")
+mr_creatinine  <- run_mr(harmonized_creatinine)
+mr_mat_smoking <- run_mr(harmonized_mat_smoking)
+mr_plasminogen <- run_mr(harmonized_plasminogen)
+mr_smoking     <- run_mr(harmonized_smoking)
+mr_stress      <- run_mr(harmonized_stress)
 
-dev.off() # Close the device
-
-# Create a matrix for the heatmap with Odds Ratios
-data <- combined_mr_res %>%
-  mutate(exposure_outcome = paste(exposure, outcome, sep = "_"))
-
-melted_data <- melt(data, id.vars = c("exposure", "method", "outcome", "pval"), measure.vars = "or")
-
-# Add significance annotations based on p-values
-melted_data$significance <- case_when(
-  pval < 0.05 ~ "*",
-  pval >= 0.05 & pval < 0.06 ~ "+",
-  TRUE ~ ""
+# Combine all results
+mr_combined <- bind_rows(
+  mr_creatinine,
+  mr_mat_smoking,
+  mr_plasminogen,
+  mr_smoking,
+  mr_stress
 )
 
-# Calculate the median value for the midpoint of the color scale
-median_value <- median(melted_data$value)
+# Label grouping: show exposure name only on first row of each group
+mr_combined <- mr_combined %>%
+  group_by(exposure) %>%
+  mutate(group = ifelse(row_number() == 1, exposure, "")) %>%
+  ungroup()
 
-# Create and customize the heatmap
-heatmap <- ggplot(melted_data, aes(x = exposure, y = method, fill = value)) + 
-  geom_tile(color = "white") +
-  geom_text(aes(label = paste(significance)), color = "black", size = 3) +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "lightblue", 
-                       midpoint = median_value, limit = c(min(melted_data$value), max(melted_data$value)), 
-                       space = "Lab", name = "Odds Ratio") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        plot.caption = element_text(hjust = 0.5, size = 10)) +
-  labs(title = "Heatmap of Exposures with Outcome Periodontitis",
-       x = "Exposure", y = "Method", caption = "Significance: (*) p < 0.05, (+) 0.05 <= 0.06")
 
-# Add a side key note
-heatmap <- heatmap + annotate("text", x = Inf, y = length(unique(melted_data$method)) + 1, 
-                              label = "+ p-values slightly above 0.05 (between 0.05 and 0.06)", 
-                              hjust = 1.1, vjust = 1.1, size = 3, color = "black")
+# -----------------------------------------------------------------------------
+# 6. Sensitivity analyses
+# -----------------------------------------------------------------------------
 
-# Save the heatmap as a PNG file
-ggsave("heatmap.png", plot = heatmap, width = 12, height = 8, bg = "white")
+run_sensitivity <- function(harmonized_dat, label) {
+  cat("\n===", label, "===\n")
 
-# Perform MR analysis with the harmonized data
-mr(Harmonized, method_list = c("mr_egger_regression", "mr_ivw", "mr_ivw_radial", "mr_ivw_mre", "mr_weighted_median"))
+  cat("\nHeterogeneity test:\n")
+  print(mr_heterogeneity(harmonized_dat))
 
-# Conduct heterogeneity and pleiotropy tests
-b.1test = mr_heterogeneity(Harmonized)
-mr_heterogeneity(Harmonized)
+  cat("\nPleiotropy test (MR-Egger intercept):\n")
+  print(mr_pleiotropy_test(harmonized_dat))
 
-b.2test = mr_pleiotropy_test(Harmonized)
-mr_pleiotropy_test(Harmonized)
+  loo <- mr_leaveoneout(harmonized_dat)
+  mr_leaveoneout_plot(loo)
 
-# Perform Leave-One-Out sensitivity analysis
-b.3test = mr_leaveoneout(Harmonized)
-mr_leaveoneout_plot(b.3test)
+  return(loo)
+}
 
-# Generate MR scatter plot
-sp1 = mr(Harmonized)
-mr_scatter_plot(sp1, Harmonized)
+loo_creatinine  <- run_sensitivity(harmonized_creatinine,  "Creatinine")
+loo_mat_smoking <- run_sensitivity(harmonized_mat_smoking, "Maternal Smoking")
+loo_plasminogen <- run_sensitivity(harmonized_plasminogen, "Plasminogen")
+loo_smoking     <- run_sensitivity(harmonized_smoking,     "Smoking")
+loo_stress      <- run_sensitivity(harmonized_stress,      "Absence of Psychosocial Stress")
 
-# Generate MR forest plot
-mr_forest_plot(mr_singlesnp(Harmonized))
 
-# Generate MR funnel plot
-mr_funnel_plot(mr_singlesnp(Harmonized))
+# -----------------------------------------------------------------------------
+# 7. Outlier detection and removal
+# -----------------------------------------------------------------------------
+# Flags SNPs whose removal shifts the MR estimate by > 2 SD
 
-#check presence of outliers
-mr_rucker_cooksdistance(exposure, parameters = default_parameters())
-# Remove outliers based on Leave-One-Out plot & Test thresholds for filtering
-loo_results <- mr_leaveoneout(exposure)
-mr_leaveoneout_plot(loo_results)
+remove_outliers <- function(harmonized_dat, exposure_dat) {
+  loo     <- mr_leaveoneout(harmonized_dat)
+  mean_b  <- mean(loo$b)
+  sd_b    <- sd(loo$b)
 
-# Calculate mean and standard deviation of MR estimates
-mean_effect <- mean(loo_results$b)
-sd_effect <- sd(loo_results$b)
+  outlier_snps <- loo %>%
+    filter(abs(b - mean_b) > 2 * sd_b) %>%
+    pull(SNP)
 
-# Threshold for identifying significant SNPs
-threshold_sd <- 2 * sd_effect 
+  if (length(outlier_snps) > 0) {
+    cat("Outlier SNPs removed:", paste(outlier_snps, collapse = ", "), "\n")
+  } else {
+    cat("No outliers detected.\n")
+  }
 
-# Identify and filter out SNPs with significant changes
-significant_snps <- loo_results[abs(loo_results$b - mean_effect) > threshold_sd, ]
-filtered_data <- loo_results[!loo_results$SNP %in% significant_snps$SNP, ]
-mr_leaveoneout_plot(filtered_data)
+  exposure_dat %>% filter(!SNP %in% outlier_snps)
+}
 
-# Print significant SNPs
-print("Significant SNPs (Standard Deviation Approach):")
-print(significant_snps$SNP)
+tophits_creatinine_clean <- remove_outliers(harmonized_creatinine, tophits_creatinine)
 
-filtered_df <- exposure %>% filter(!SNP %in% significant_snps$SNP)
 
-# Extract data from mr_singlesnp for forest plot
-singlesnp_data <- mr_singlesnp(Harmonized)
-singlesnp_data$lower_ci <- singlesnp_data$b - 1.96 * singlesnp_data$se
-singlesnp_data$upper_ci <- singlesnp_data$b + 1.96 * singlesnp_data$se
+# -----------------------------------------------------------------------------
+# 8. Visualization
+# -----------------------------------------------------------------------------
 
-# Define no-effect value
-no_effect <- 0
+# --- 8a. Forest plot (meta-analysis across all exposures and methods) ---
 
-# Filter out non-significant points
-significant_data <- singlesnp_data[!(singlesnp_data$lower_ci < no_effect & singlesnp_data$upper_ci > no_effect),]
+meta_all <- metagen(
+  TE     = mr_combined$b,
+  seTE   = mr_combined$se,
+  studlab = mr_combined$method,
+  data   = mr_combined,
+  sm     = "OR"
+)
 
-# Plot the forest plot for significant SNPs
-ggplot(significant_data, aes(x = b, y = SNP)) +
-  geom_point(size = 3) +
-  geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci), height = 0.2) +
-  geom_vline(xintercept = no_effect, linetype = "dashed") +
-  theme_minimal() +
-  labs(title = "Relevant SNPs: Exposure name", x = "Effect Size", y = "SNP") +
-  theme(
-    plot.title = element_text(hjust = 0.5), 
-    plot.margin = margin(20, 20, 20, 20) 
+png("output/forest_plot.png", width = 15, height = 7.5, units = "in", res = 300)
+forest(
+  meta_all,
+  studlab              = TRUE,
+  comb.fixed           = FALSE,
+  comb.random          = TRUE,
+  print.tau2           = FALSE,
+  xlab                 = "Log Odds Ratio for Periodontitis",
+  leftcols             = c("group", "method", "nsnp", "b", "se", "pval"),
+  leftlabs             = c("Exposure", "Method", "SNPs", "Effect Size", "SE", "P-value"),
+  rightcols            = c("or", "or_lci95", "or_uci95"),
+  rightlabs            = c("OR", "Lower CI", "Upper CI"),
+  fontsize             = 12,
+  colgap.forest.left   = "0.8cm",
+  colgap.forest.right  = "0.8cm",
+  digits               = 2,
+  backtransf           = TRUE,
+  col.square           = "red",
+  col.diamond.random   = "blue",
+  col.diamond.lines    = "blue",
+  col.predict          = "purple"
+)
+dev.off()
+
+
+# --- 8b. Heatmap of odds ratios across exposures and methods ---
+
+heatmap_data <- mr_combined %>%
+  mutate(
+    significance = case_when(
+      pval < 0.05             ~ "*",
+      pval >= 0.05 & pval < 0.06 ~ "+",
+      TRUE                    ~ ""
+    )
   )
+
+melted <- melt(
+  heatmap_data,
+  id.vars      = c("exposure", "method", "outcome", "pval", "significance"),
+  measure.vars = "or"
+)
+
+median_or <- median(melted$value)
+
+heatmap_plot <- ggplot(melted, aes(x = exposure, y = method, fill = value)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = significance), color = "black", size = 3) +
+  scale_fill_gradient2(
+    low      = "blue",
+    high     = "red",
+    mid      = "lightblue",
+    midpoint = median_or,
+    name     = "Odds Ratio"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x  = element_text(angle = 45, hjust = 1),
+    plot.title   = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.caption = element_text(hjust = 0.5, size = 10)
+  ) +
+  labs(
+    title   = "Odds Ratios: Exposures vs. Periodontitis",
+    x       = "Exposure",
+    y       = "MR Method",
+    caption = "Significance: (*) p < 0.05, (+) p 0.05–0.06"
+  )
+
+ggsave("output/heatmap.png", plot = heatmap_plot, width = 12, height = 8, bg = "white")
+
+
+# --- 8c. Per-exposure diagnostic plots ---
+
+plot_diagnostics <- function(harmonized_dat) {
+  sp   <- mr(harmonized_dat)
+  mr_scatter_plot(sp, harmonized_dat)
+  mr_forest_plot(mr_singlesnp(harmonized_dat))
+  mr_funnel_plot(mr_singlesnp(harmonized_dat))
+}
+
+plot_diagnostics(harmonized_creatinine)
+plot_diagnostics(harmonized_mat_smoking)
+plot_diagnostics(harmonized_plasminogen)
+plot_diagnostics(harmonized_smoking)
+plot_diagnostics(harmonized_stress)
+
+
+# --- 8d. Significant SNP forest plot (filters out null SNPs) ---
+
+plot_significant_snps <- function(harmonized_dat, title_label) {
+  snp_data <- mr_singlesnp(harmonized_dat) %>%
+    mutate(
+      lower_ci = b - 1.96 * se,
+      upper_ci = b + 1.96 * se
+    ) %>%
+    filter(!(lower_ci < 0 & upper_ci > 0))  # Remove SNPs crossing the null
+
+  ggplot(snp_data, aes(x = b, y = SNP)) +
+    geom_point(size = 3) +
+    geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci), height = 0.2) +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    theme_minimal() +
+    labs(
+      title = paste("Significant SNPs:", title_label),
+      x     = "Effect Size (log OR)",
+      y     = "SNP"
+    ) +
+    theme(
+      plot.title  = element_text(hjust = 0.5),
+      plot.margin = margin(20, 20, 20, 20)
+    )
+}
+
+plot_significant_snps(harmonized_creatinine,  "Creatinine")
+plot_significant_snps(harmonized_mat_smoking, "Maternal Smoking")
+plot_significant_snps(harmonized_plasminogen, "Plasminogen")
+plot_significant_snps(harmonized_smoking,     "Smoking")
+plot_significant_snps(harmonized_stress,      "Absence of Psychosocial Stress")
